@@ -1,0 +1,171 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local VoiceChatService = game:GetService("VoiceChatService")
+
+-- Create ScreenGui
+local gui = Instance.new("ScreenGui")
+gui.Name = "VCDebugGui"
+gui.ResetOnSpawn = false
+
+-- Create main frame
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 200, 0, 200)  -- Increased height for keybind settings
+frame.Position = UDim2.new(0.5, -100, 0.5, -100)
+frame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+frame.BorderSizePixel = 0
+frame.Parent = gui
+
+-- Create title (also serves as drag handle)
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 30)
+title.Position = UDim2.new(0, 0, 0, 0)
+title.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+title.Text = "VC Unban GUI"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextSize = 18
+title.Font = Enum.Font.GothamBold
+title.Parent = frame
+
+-- Create restart button
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(0.8, 0, 0, 30)
+button.Position = UDim2.new(0.1, 0, 0.2, 0)
+button.BackgroundColor3 = Color3.fromRGB(65, 65, 65)
+button.BorderSizePixel = 0
+button.Text = "Unban"
+button.TextColor3 = Color3.fromRGB(255, 255, 255)
+button.TextSize = 16
+button.Font = Enum.Font.Gotham
+button.Parent = frame
+
+-- Create keybind settings
+local function createKeybindSetting(name, defaultKey, yPos)
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(0.8, 0, 0, 30)
+    container.Position = UDim2.new(0.1, 0, yPos, 0)
+    container.BackgroundTransparency = 1
+    container.Parent = frame
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.6, 0, 1, 0)
+    label.Position = UDim2.new(0, 0, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = name
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextSize = 14
+    label.Font = Enum.Font.Gotham
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = container
+    
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(0.4, 0, 1, 0)
+    button.Position = UDim2.new(0.6, 0, 0, 0)
+    button.BackgroundColor3 = Color3.fromRGB(65, 65, 65)
+    button.BorderSizePixel = 0
+    button.Text = defaultKey.Name
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.TextSize = 14
+    button.Font = Enum.Font.Gotham
+    button.Parent = container
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 4)
+    corner.Parent = button
+    
+    return button
+end
+
+local toggleKeybind = createKeybindSetting("Toggle GUI:", Enum.KeyCode.Y, 0.5)
+local functionKeybind = createKeybindSetting("Unban:", Enum.KeyCode.U, 0.7)
+
+-- Add corner radius
+local frameCorner = Instance.new("UICorner")
+frameCorner.CornerRadius = UDim.new(0, 8)
+frameCorner.Parent = frame
+
+local buttonCorner = Instance.new("UICorner")
+buttonCorner.CornerRadius = UDim.new(0, 6)
+buttonCorner.Parent = button
+
+-- Dragging functionality
+local dragging = false
+local dragStart = nil
+local startPos = nil
+
+title.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = frame.Position
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        frame.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end)
+
+-- Keybind changing functionality
+local function setupKeybindButton(button)
+    local oldText = button.Text
+    local connection
+    
+    button.MouseButton1Click:Connect(function()
+        button.Text = "Press any key..."
+        
+        if connection then connection:Disconnect() end
+        
+        connection = UserInputService.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Keyboard then
+                button.Text = input.KeyCode.Name
+                connection:Disconnect()
+            end
+        end)
+    end)
+end
+
+setupKeybindButton(toggleKeybind)
+setupKeybindButton(functionKeybind)
+
+-- Voice chat function
+local function callVoiceChat()
+    pcall(function()
+        VoiceChatService:joinVoice()
+    end)
+end
+
+-- Button click handler
+button.MouseButton1Click:Connect(callVoiceChat)
+
+-- Keybind handlers
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.UserInputType == Enum.UserInputType.Keyboard then
+        if input.KeyCode.Name == toggleKeybind.Text then
+            gui.Enabled = not gui.Enabled
+        elseif input.KeyCode.Name == functionKeybind.Text then
+            callVoiceChat()
+        end
+    end
+end)
+
+-- Parent the GUI to PlayerGui when player loads
+local player = Players.LocalPlayer
+if player then
+    gui.Parent = player.PlayerGui
+else
+    Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
+    gui.Parent = Players.LocalPlayer.PlayerGui
+end
